@@ -1,0 +1,8 @@
+[package]
+name = "stowjar-keylogger"
+version = "0.1.0"
+authors = ["Floozutter <me@floozutter.site>"]
+edition = "2021"
+
+[dependencies]
+rdev = "0.5.2"
