@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "stowjar-modeler"
+version = "0.1.0"
+description = "create a Markov chain model from player input keylogs"
+authors = ["Floozutter <me@floozutter.site>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "stowjar_modeler"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
