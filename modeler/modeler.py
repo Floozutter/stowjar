@@ -26,8 +26,8 @@ class KeyEvent(NamedTuple):
     def parse_from_line(cls, line: str) -> Self:
         timestamp, key, push = line.strip().split()
         return cls(int(timestamp), key, bool(int(push)))
- 
-class KeystateChangeCounter:
+
+class KeyStateChangeCounter:
     def __init__(self: Self) -> None:
         # mapping of keystates to keystate destinations, and...
         # the durations to those destinations, and...
@@ -36,40 +36,44 @@ class KeystateChangeCounter:
             defaultdict(lambda: defaultdict(Counter))
         )
     def add(self: Self, src: KeyState, dest: KeyState, duration: int) -> None:
+        """add a keystate change into the counter as a directed edge"""
         self.changes[src][dest][duration] += 1
+    def process(self: Self, keylog: Iterable[KeyEvent]) -> None:
+        """add the keystate changes from a keylog into the counter"""
+        # iterate over keylog and add in changes
+        last_keystate = KeyState.empty()
+        last_timestamp: int | None = None
+        for e in keylog:
+            # get current keystate and duration since last keystate
+            keystate = last_keystate.change(e.key, e.push)
+            if keystate == last_keystate:
+                # something weird happened with the keylog, skip this event
+                continue
+            duration = e.timestamp - last_timestamp if last_timestamp is not None else 0
+            self.add(last_keystate, keystate, duration)
+            # update last keystate and timestamp
+            last_keystate = keystate
+            last_timestamp = e.timestamp
+    def unsink(self: Self) -> None:
+        """add directed edges from sink vertices in the graph toward the empty Keystate"""
+        raise NotImplementedError
 
-def keylog_into_chain(keylog: Iterable[KeyEvent]):
-    counter = KeystateChangeCounter()
-    # iterate over keylog and add in changes
-    last_keystate = KeyState.empty()
-    last_timestamp: int | None = None
-    for e in keylog:
-        # get current keystate and duration since last keystate
-        keystate = last_keystate.change(e.key, e.push)
-        if keystate == last_keystate:
-            # something weird happened with the keylog, skip this event
-            continue
-        duration = e.timestamp - last_timestamp if last_timestamp is not None else 0
-        counter.add(last_keystate, keystate, duration)
-        # update last keystate and timestamp
-        last_keystate = keystate
-        last_timestamp = e.timestamp
-    # fill in keystates with no changes leading out, in case insufficient data from keylog
-    ...
-    # transform counts into probabilities
-    ...
-    return None
-
-def parse_args() -> tuple[Path, Path]:
+def parse_args() -> tuple[Iterable[Path], Path]:
     parser = ArgumentParser(description = __doc__)
-    parser.add_argument("inputkeylog", type = Path)
-    parser.add_argument("outputchain", type = Path)
+    parser.add_argument("keylog", nargs = "+", type = Path)
+    parser.add_argument("-c", "--chain", type = Path, required = True)
     args = parser.parse_args()
-    return args.inputkeylog, args.outputchain
+    return args.keylog, args.chain
 
-def main(keylog_path: Path, chain_path: Path) -> None:
-    keylog = map(KeyEvent.parse_from_line, keylog_path.read_text().strip().split())
-    chain = keylog_into_chain(keylog)
+def main(keylog_files: Iterable[Path], chain_file: Path) -> None:
+    counter = KeyStateChangeCounter()
+    # read and process keylog files
+    for file in keylog_files:
+        text = file.read_text()
+        keylog = map(KeyEvent.parse_from_line, text.strip().split())
+        counter.process(keylog)
+    #counter.unsink()
+    # output to chain file
 
 if __name__ == "__main__":
     main(*parse_args())
